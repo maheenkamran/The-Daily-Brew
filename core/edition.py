@@ -4,6 +4,9 @@ from core import db
 from core.rank import score_article
 from core.editor import ai_editor
 
+
+EXPLORE = "Outside Your Bubble"
+EXPLORE_N = 2
 FRONT_N = 6
 SECTION_N = 5
 
@@ -15,7 +18,71 @@ def _pool():
         pool = db.get_articles_by_date(d) if d else []
     return pool
 
+EXPLORE = "Outside Your Bubble"
+EXPLORE_N = 2
+
 def build_layout(user):
+    # 1) Python first cut
+    scored = []
+    for a in _pool():
+        r = score_article(a, user)
+        if r:
+            scored.append((r[0], a, r[1]))
+    if not scored:
+        return None
+    scored.sort(key=lambda x: -x[0])
+
+    # 2) Gemini editor re-ranks the top candidates (falls back silently)
+    top, tail = scored[:AI_POOL], scored[AI_POOL:]
+    picks = ai_editor(user, top)
+    if picks:
+        def blended(x):
+            p = picks.get(x[1]["id"])
+            return 0.5 * x[0] + 0.5 * p.priority if p else x[0]
+        top.sort(key=lambda x: -blended(x))
+    scored = top + tail
+
+    # 3) Build the layout
+    front, rest = scored[:FRONT_N], scored[FRONT_N:]
+    buckets = {s: [] for s in SECTIONS if s != "Front Page"}
+    for sc, a, m in rest:
+        sec = a["section"] if a["section"] in buckets else "Quick Briefs"
+        if len(buckets[sec]) < SECTION_N:
+            buckets[sec].append((sc, a["id"]))
+
+    order = sorted((s for s in buckets if buckets[s]),
+                   key=lambda s: -sum(x[0] for x in buckets[s]))
+
+    # 3b) Exploration: high-quality stories that match none of the reader's interests
+    used = set(a["id"] for _, a, _ in front) | {i for v in buckets.values() for _, i in v}
+    explore = sorted((x for x in rest if not x[2] and x[1]["id"] not in used),
+                     key=lambda x: -x[1]["quality_score"])[:EXPLORE_N]
+    explore_ids = [a["id"] for _, a, _ in explore]
+    if explore_ids:
+        buckets[EXPLORE] = [(sc, a["id"]) for sc, a, _ in explore]
+        order.append(EXPLORE)
+
+    # 4) "Why this is in your paper"
+    why = {}
+    for sc, a, m in scored:
+        p = picks.get(a["id"])
+        if p and p.why:
+            why[str(a["id"])] = p.why
+        elif m:
+            why[str(a["id"])] = f"Because you follow {', '.join(m[:2])}"
+        else:
+            why[str(a["id"])] = "A top story across today's sources"
+    for i in explore_ids:
+        why[str(i)] = "Outside your usual interests, but too important to miss"
+
+    return {
+        "lead": front[0][1]["id"],
+        "front": [a["id"] for _, a, _ in front],
+        "sections": {s: [i for _, i in buckets[s]] for s in order},
+        "section_order": order,
+        "why": why,
+    }
+    
     # 1) Python first cut
     scored = []
     for a in _pool():

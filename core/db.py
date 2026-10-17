@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS feedback (
     user_id INTEGER, article_id INTEGER, action TEXT,
     timestamp TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS interest_deltas (
+    user_id INTEGER, topic TEXT, delta REAL,
+    PRIMARY KEY (user_id, topic)
+);
 """
 
 def get_conn():
@@ -59,9 +63,19 @@ def get_user(uid):
             return None
         user = dict(row)
         user["avoid_topics"] = json.loads(user["avoid_topics"])
-        user["interests"] = {r["topic"]: r["weight"] for r in c.execute(
+        base = {r["topic"]: r["weight"] for r in c.execute(
             "SELECT topic, weight FROM user_interests WHERE user_id=?", (uid,))}
-        return user
+        deltas = {r["topic"]: r["delta"] for r in c.execute(
+            "SELECT topic, delta FROM interest_deltas WHERE user_id=?", (uid,))}
+
+    lower = {t.lower(): t for t in base}
+    interests = dict(base)
+    for t, d in deltas.items():
+        key = lower.get(t.lower(), t)        # merge into a declared interest if same name
+        interests[key] = interests.get(key, 0.0) + d
+    user["interests"] = interests            # what rank.py and the editor see
+    user["declared"] = list(base)            # what the user picked in onboarding
+    return user
 
 def list_users():
     with get_conn() as c:
@@ -158,3 +172,23 @@ def get_user_feedback(uid):
 def update_theme(uid, theme):
     with get_conn() as c:
         c.execute("UPDATE users SET theme=? WHERE id=?", (theme, uid))
+        
+def feedback_with_topics(uid):
+    with get_conn() as c:
+        rows = c.execute(
+            """SELECT f.action, a.topics FROM feedback f
+               JOIN articles a ON a.id = f.article_id
+               WHERE f.user_id=?""", (uid,)).fetchall()
+    return [(r["action"], json.loads(r["topics"] or "[]")) for r in rows]
+
+def replace_deltas(uid, deltas):
+    with get_conn() as c:
+        c.execute("DELETE FROM interest_deltas WHERE user_id=?", (uid,))
+        c.executemany(
+            "INSERT INTO interest_deltas (user_id, topic, delta) VALUES (?,?,?)",
+            [(uid, t, d) for t, d in deltas.items()])
+        
+def get_deltas(uid):
+    with get_conn() as c:
+        return {r["topic"]: r["delta"] for r in c.execute(
+            "SELECT topic, delta FROM interest_deltas WHERE user_id=?", (uid,))}

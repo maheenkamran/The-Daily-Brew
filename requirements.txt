@@ -1,0 +1,7 @@
+streamlit>=1.40
+google-genai
+feedparser
+reportlab
+gTTS
+pydantic
+python-dotenv

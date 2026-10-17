@@ -7,21 +7,26 @@ init_db()
 
 @st.cache_resource
 def bootstrap():
-    import sys
+    import sys, traceback
     from core import db
-    if not db.get_articles_since("1970-01-01"):
-        from core.pipeline import run_pipeline
-        run_pipeline()
-    from scripts import seed_demo
-    old = sys.argv
-    sys.argv = ["seed"]            # stop argparse reading Streamlit's arguments
     try:
-        seed_demo.main()
-    finally:
-        sys.argv = old
+        if not db.get_articles_since("1970-01-01"):
+            from core.pipeline import run_pipeline
+            run_pipeline()
+    except Exception:
+        print("[bootstrap] pipeline failed:\n" + traceback.format_exc())
+    try:
+        from scripts import seed_demo
+        old = sys.argv
+        sys.argv = ["seed"]
+        try:
+            seed_demo.main()
+        finally:
+            sys.argv = old
+    except Exception:
+        print("[bootstrap] seed failed:\n" + traceback.format_exc())
+    return True
 
-with st.spinner("Setting up today's newsroom..."):
-    bootstrap()
     
 
 user = None

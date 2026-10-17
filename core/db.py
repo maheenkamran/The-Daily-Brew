@@ -1,5 +1,6 @@
 import sqlite3, json
 from config import DB_PATH
+import hashlib, os, secrets
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -45,11 +46,8 @@ def get_conn():
 def init_db():
     with get_conn() as c:
         c.executescript(SCHEMA)
-        # Migration: ensure password_hash column exists on existing databases
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(users)").fetchall()]
-        if "password_hash" not in cols:
-            c.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
-
+    migrate_auth()
+    
 def create_user(name, persona, interests, avoid, password_hash=None, theme="classic"):
     with get_conn() as c:
         cur = c.execute(
@@ -210,3 +208,68 @@ def get_deltas(uid):
     with get_conn() as c:
         return {r["topic"]: r["delta"] for r in c.execute(
             "SELECT topic, delta FROM interest_deltas WHERE user_id=?", (uid,))}
+        
+# ---------- auth ----------
+def migrate_auth():
+    with get_conn() as c:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+        for col in ("username", "pw_hash", "token"):
+            if col not in cols:
+                c.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+
+def _hash(pw, salt=None):
+    salt = salt or os.urandom(16)
+    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000)
+    return salt.hex() + ":" + h.hex()
+
+def _verify(pw, stored):
+    salt_hex, h = stored.split(":")
+    return secrets.compare_digest(_hash(pw, bytes.fromhex(salt_hex)).split(":")[1], h)
+
+def register(username, password):
+    """Returns (user_id, error)."""
+    username = username.strip().lower()
+    try:
+        with get_conn() as c:
+            cur = c.execute("INSERT INTO users (name, username, pw_hash) VALUES (?,?,?)",
+                            (username.title(), username, _hash(password)))
+            return cur.lastrowid, None
+    except sqlite3.IntegrityError:
+        return None, "That username is already taken."
+
+def login(username, password):
+    with get_conn() as c:
+        r = c.execute("SELECT id, pw_hash FROM users WHERE username=?",
+                      (username.strip().lower(),)).fetchone()
+    if not r or not r["pw_hash"] or not _verify(password, r["pw_hash"]):
+        return None
+    return r["id"]
+
+def set_credentials(uid, username, password):
+    with get_conn() as c:
+        c.execute("UPDATE users SET username=?, pw_hash=? WHERE id=?",
+                  (username.strip().lower(), _hash(password), uid))
+
+def issue_token(uid):
+    t = secrets.token_urlsafe(24)
+    with get_conn() as c:
+        c.execute("UPDATE users SET token=? WHERE id=?", (t, uid))
+    return t
+
+def clear_token(uid):
+    with get_conn() as c:
+        c.execute("UPDATE users SET token=NULL WHERE id=?", (uid,))
+
+def user_by_token(t):
+    with get_conn() as c:
+        r = c.execute("SELECT id FROM users WHERE token=?", (t,)).fetchone()
+    return get_user(r["id"]) if r else None
+
+def save_profile(uid, name, persona, interests, avoid):
+    with get_conn() as c:
+        c.execute("UPDATE users SET name=?, persona=?, avoid_topics=? WHERE id=?",
+                  (name, persona, json.dumps(avoid), uid))
+        c.execute("DELETE FROM user_interests WHERE user_id=?", (uid,))
+        c.executemany("INSERT INTO user_interests (user_id, topic, weight) VALUES (?,?,1.0)",
+                      [(uid, t) for t in interests])

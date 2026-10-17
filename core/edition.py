@@ -81,56 +81,15 @@ def build_layout(user):
         "sections": {s: [i for _, i in buckets[s]] for s in order},
         "section_order": order,
         "why": why,
-    }
-    
-    # 1) Python first cut
-    scored = []
-    for a in _pool():
-        r = score_article(a, user)
-        if r:
-            scored.append((r[0], a, r[1]))
-    if not scored:
-        return None
-    scored.sort(key=lambda x: -x[0])
-
-    # 2) Gemini editor re-ranks the top candidates (falls back silently)
-    top, tail = scored[:AI_POOL], scored[AI_POOL:]
-    picks = ai_editor(user, top)
-    if picks:
-        def blended(x):
-            p = picks.get(x[1]["id"])
-            return 0.5 * x[0] + 0.5 * p.priority if p else x[0]
-        top.sort(key=lambda x: -blended(x))
-    scored = top + tail
-
-    # 3) Build the layout
-    front, rest = scored[:FRONT_N], scored[FRONT_N:]
-    buckets = {s: [] for s in SECTIONS if s != "Front Page"}
-    for sc, a, m in rest:
-        sec = a["section"] if a["section"] in buckets else "Quick Briefs"
-        if len(buckets[sec]) < SECTION_N:
-            buckets[sec].append((sc, a["id"]))
-
-    order = sorted((s for s in buckets if buckets[s]),
-                   key=lambda s: -sum(x[0] for x in buckets[s]))
-
-    # 4) "Why this is in your paper": Gemini's reason first, Python's as backup
-    why = {}
-    for sc, a, m in scored:
-        p = picks.get(a["id"])
-        if p and p.why:
-            why[str(a["id"])] = p.why
-        elif m:
-            why[str(a["id"])] = f"Because you follow {', '.join(m[:2])}"
-        else:
-            why[str(a["id"])] = "A top story across today's sources"
-
-    return {
-        "lead": front[0][1]["id"],
-        "front": [a["id"] for _, a, _ in front],
-        "sections": {s: [i for _, i in buckets[s]] for s in order},
-        "section_order": order,
-        "why": why,
+        "takeaways": [
+            {
+                "id": a["id"],
+                "title": a["title"],
+                "source": a["source"],
+                "takeaway": (a.get("summary") or a.get("title") or "").split(". ")[0].strip() + ("." if not (a.get("summary") or a.get("title") or "").split(". ")[0].strip().endswith(".") else "")
+            }
+            for _, a, _ in front[:3]
+        ],
     }
 
 def _all_ids(layout):

@@ -3,6 +3,8 @@ import streamlit as st
 from core import edition
 from core.db import get_user_feedback
 from export.pdf import build_pdf
+from ui.components import article_card, ghost_id
+from ui.insights import strips
 from ui.components import article_card
 
 def _section(name, ids, arts, layout, uid, fb, hidden):
@@ -22,7 +24,10 @@ def render(user, day):
     layout, arts = result
     uid = user["id"]
     fb = get_user_feedback(uid)
-    hidden = {i for i, acts in fb.items() if "skip" in acts}
+    
+    hidden_all = {i for i, acts in fb.items() if acts & {"skip", "dislike"}}
+    g = ghost_id()
+    hidden = hidden_all - ({g} if g else set())   # the card that's animating out stays for a moment
     
     st.sidebar.download_button(
     "⬇️ Download PDF",

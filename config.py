@@ -16,11 +16,22 @@ GEMINI_MODEL = "gemini-2.5-flash"  # verify against current docs
 PERSONAS = ["Software Engineer", "Investor", "Academic", "AI Researcher",
             "Student", "Founder", "Curious Reader"]
 
+
 INTERESTS = ["Tech & AI", "Global Markets", "Startups", "Science",
              "Climate", "World News", "Health", "Space", "Cybersecurity", "Culture"]
 
 AVOID_SUGGESTIONS = ["Celebrity Gossip", "Local Politics", "Sports",
                      "Crime", "Entertainment", "Elections"]
+
+PERSONA_FOCUS = {
+    "Software Engineer": ["Tech & AI", "Cybersecurity"],
+    "Investor":          ["Global Markets", "Startups"],
+    "Academic":          ["Science", "Climate"],
+    "AI Researcher":     ["Tech & AI", "Science"],
+    "Student":           ["Science", "World News"],
+    "Founder":           ["Startups", "Tech & AI"],
+    "Curious Reader":    ["World News", "Culture"],
+}
 
 SECTIONS = ["Front Page", "Tech & Code", "Deep Dives", "Quick Briefs"]
 
@@ -43,3 +54,11 @@ MAX_PER_FEED = 10        # per generic feed
 MAX_PER_INTEREST = 8     # per Google News interest search
 BATCH_SIZE = 15          # articles per Gemini call
 MAX_ARTICLES = 90        # hard cap per run, protects free-tier quota
+
+from datetime import date
+
+TODAY = lambda: date.today().isoformat()      # from Phase 2
+
+SECTIONS = ["Front Page", "Tech & Code", "Deep Dives", "Quick Briefs"]   # from Phase 1
+
+AI_POOL = 20                                  # new in Phase 3

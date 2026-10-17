@@ -7,11 +7,12 @@ def _match(topic, tags, text):
     return any(len(g) > 3 and (g in t or t in g) for g in tags)
 
 def score_article(a, user):
-    """Returns (score, matched_interests), or None if filtered out."""
+    """Returns (score, matched_interests), or None if the article is filtered out."""
     tags = [g.lower() for g in a["topics"]]
     text = (a["title"] + " " + (a["summary"] or "")).lower()
 
-    for bad in user["avoid_topics"]:          # negative filtering
+    # negative filtering
+    for bad in user["avoid_topics"]:
         b = bad.lower()
         if b in tags or b in text or any(len(g) > 3 and (g in b or b in g) for g in tags):
             return None

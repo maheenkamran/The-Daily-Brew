@@ -62,3 +62,6 @@ TODAY = lambda: date.today().isoformat()      # from Phase 2
 SECTIONS = ["Front Page", "Tech & Code", "Deep Dives", "Quick Briefs"]   # from Phase 1
 
 AI_POOL = 20                                  # new in Phase 3
+
+TIMEZONE = "Asia/Karachi"
+REFRESH_HOUR = 9 # 9 am 

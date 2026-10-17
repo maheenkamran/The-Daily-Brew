@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     persona TEXT,
     avoid_topics TEXT DEFAULT '[]',
     theme TEXT DEFAULT 'classic',
+    password_hash TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS user_interests (
@@ -44,12 +45,16 @@ def get_conn():
 def init_db():
     with get_conn() as c:
         c.executescript(SCHEMA)
+        # Migration: ensure password_hash column exists on existing databases
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(users)").fetchall()]
+        if "password_hash" not in cols:
+            c.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
 
-def create_user(name, persona, interests, avoid):
+def create_user(name, persona, interests, avoid, password_hash=None, theme="classic"):
     with get_conn() as c:
         cur = c.execute(
-            "INSERT INTO users (name, persona, avoid_topics) VALUES (?,?,?)",
-            (name, persona, json.dumps(avoid)))
+            "INSERT INTO users (name, persona, avoid_topics, password_hash, theme) VALUES (?,?,?,?,?)",
+            (name, persona, json.dumps(avoid), password_hash, theme))
         uid = cur.lastrowid
         c.executemany(
             "INSERT INTO user_interests (user_id, topic, weight) VALUES (?,?,1.0)",
@@ -62,7 +67,7 @@ def get_user(uid):
         if not row:
             return None
         user = dict(row)
-        user["avoid_topics"] = json.loads(user["avoid_topics"])
+        user["avoid_topics"] = json.loads(user["avoid_topics"] or "[]")
         base = {r["topic"]: r["weight"] for r in c.execute(
             "SELECT topic, weight FROM user_interests WHERE user_id=?", (uid,))}
         deltas = {r["topic"]: r["delta"] for r in c.execute(
@@ -77,9 +82,22 @@ def get_user(uid):
     user["declared"] = list(base)            # what the user picked in onboarding
     return user
 
+def get_user_by_name(name):
+    if not name:
+        return None
+    with get_conn() as c:
+        row = c.execute("SELECT id FROM users WHERE LOWER(name) = LOWER(?)", (name.strip(),)).fetchone()
+        if not row:
+            return None
+        return get_user(row["id"])
+
+def update_user_password(uid, password_hash):
+    with get_conn() as c:
+        c.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, uid))
+
 def list_users():
     with get_conn() as c:
-        return [dict(r) for r in c.execute("SELECT id, name FROM users")]
+        return [dict(r) for r in c.execute("SELECT id, name, persona FROM users")]
     
 def existing_urls():
     with get_conn() as c:

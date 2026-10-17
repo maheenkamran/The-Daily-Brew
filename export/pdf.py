@@ -19,23 +19,32 @@ MAST_H = 30 * mm       # masthead height (page 1)
 LEAD_H = 64 * mm       # lead story box (page 1)
 COL_BOTTOM = 18 * mm
 
-INK = colors.HexColor("#111111")
-PAPER = colors.HexColor("#f6f0e1")
-ACCENT = colors.HexColor("#8b1a1a")
-GREY = colors.HexColor("#555555")
-
-S = {
-    "lead":     ParagraphStyle("lead", fontName="Times-Bold", fontSize=26, leading=28, spaceAfter=4),
-    "lead_sum": ParagraphStyle("lead_sum", fontName="Times-Roman", fontSize=12, leading=15, spaceAfter=4),
-    "sec":      ParagraphStyle("sec", fontName="Times-Bold", fontSize=9, leading=11,
-                               textColor=ACCENT, spaceBefore=8, spaceAfter=2),
-    "title":    ParagraphStyle("title", fontName="Times-Bold", fontSize=12, leading=13.5,
-                               spaceBefore=4, spaceAfter=2),
-    "sum":      ParagraphStyle("sum", fontName="Times-Roman", fontSize=9, leading=11.5),
-    "meta":     ParagraphStyle("meta", fontName="Times-Italic", fontSize=7.5, leading=9, textColor=GREY),
-    "why":      ParagraphStyle("why", fontName="Times-Italic", fontSize=7.5, leading=9,
-                               textColor=ACCENT, spaceAfter=5),
+PDF_PALETTES = {
+    "classic":   {"paper": "#f6f0e1", "ink": "#111111", "accent": "#8b1a1a", "grey": "#555555", "rule": "#999999"},
+    "dark":      {"paper": "#f4f6fa", "ink": "#0f172a", "accent": "#0284c7", "grey": "#64748b", "rule": "#cbd5e1"},
+    "financial": {"paper": "#fbf0e4", "ink": "#0f1d2e", "accent": "#990000", "grey": "#475569", "rule": "#d4b89e"},
+    "espresso":  {"paper": "#fbf8f1", "ink": "#2b1e16", "accent": "#b45309", "grey": "#6b5c52", "rule": "#d1bead"},
+    "nordic":    {"paper": "#ffffff", "ink": "#0f172a", "accent": "#059669", "grey": "#64748b", "rule": "#e2e8f0"},
+    "cyber":     {"paper": "#ffffff", "ink": "#0f172a", "accent": "#059669", "grey": "#475569", "rule": "#d1d5db"},
 }
+
+def _get_styles(palette):
+    accent_c = colors.HexColor(palette["accent"])
+    grey_c = colors.HexColor(palette["grey"])
+    ink_c = colors.HexColor(palette["ink"])
+    
+    return {
+        "lead":     ParagraphStyle("lead", fontName="Times-Bold", fontSize=26, leading=28, spaceAfter=4, textColor=ink_c),
+        "lead_sum": ParagraphStyle("lead_sum", fontName="Times-Roman", fontSize=12, leading=15, spaceAfter=4, textColor=ink_c),
+        "sec":      ParagraphStyle("sec", fontName="Times-Bold", fontSize=9, leading=11,
+                                   textColor=accent_c, spaceBefore=8, spaceAfter=2),
+        "title":    ParagraphStyle("title", fontName="Times-Bold", fontSize=12, leading=13.5,
+                                   spaceBefore=4, spaceAfter=2, textColor=ink_c),
+        "sum":      ParagraphStyle("sum", fontName="Times-Roman", fontSize=9, leading=11.5, textColor=ink_c),
+        "meta":     ParagraphStyle("meta", fontName="Times-Italic", fontSize=7.5, leading=9, textColor=grey_c),
+        "why":      ParagraphStyle("why", fontName="Times-Italic", fontSize=7.5, leading=9,
+                                   textColor=accent_c, spaceAfter=5),
+    }
 
 def _clean(s):
     """Built-in PDF fonts only support Latin text, so drop emoji and other scripts."""
@@ -48,19 +57,24 @@ def _link(url):
     return escape(url or "", {'"': "&quot;"})
 
 # ---------- page decoration ----------
-def _decor(user, day, first, col_top):
-    interests = user["interests"]
+def _decor(user, day, first, col_top, palette):
+    interests = user.get("interests", {})
     focus = max(interests, key=interests.get) if interests else "General"
     title = _clean(f"THE {user['name'].upper()} CHRONICLE")
     nice = datetime.strptime(day, "%Y-%m-%d").strftime("%A, %B %d, %Y").upper()
     dateline = _clean(f"{nice}   |   {focus.upper()} EDITION   |   {user['persona'].upper()}")
 
+    paper_c = colors.HexColor(palette["paper"])
+    ink_c = colors.HexColor(palette["ink"])
+    grey_c = colors.HexColor(palette["grey"])
+    rule_c = colors.HexColor(palette["rule"])
+
     def draw(c, doc):
         c.saveState()
-        c.setFillColor(PAPER)
+        c.setFillColor(paper_c)
         c.rect(0, 0, W, H, fill=1, stroke=0)
-        c.setFillColor(INK)
-        c.setStrokeColor(INK)
+        c.setFillColor(ink_c)
+        c.setStrokeColor(ink_c)
         top = H - M
 
         if first:
@@ -82,14 +96,14 @@ def _decor(user, day, first, col_top):
             c.setLineWidth(1); c.line(M, top - 12, W - M, top - 12)
 
         # column rules
-        c.setStrokeColor(colors.HexColor("#999999"))
+        c.setStrokeColor(rule_c)
         c.setLineWidth(0.3)
         for k in range(1, COLS):
             x = M + k * (COL_W + GAP) - GAP / 2
             c.line(x, COL_BOTTOM, x, col_top)
 
         # footer
-        c.setFillColor(GREY)
+        c.setFillColor(grey_c)
         c.setFont("Times-Italic", 8)
         c.drawCentredString(W / 2, 9 * mm,
                             _clean(f"Compiled for {user['name']}  -  page {doc.page}"))
@@ -104,33 +118,33 @@ def _col_frames(top, prefix):
             for k in range(COLS)]
 
 # ---------- content ----------
-def _lead_block(a, why):
+def _lead_block(a, why, styles, link_color="#111111"):
     items = [
-        Paragraph(f'<link href="{_link(a["url"])}" color="#111111">{_t(a["title"])}</link>', S["lead"]),
-        Paragraph(_t(f'{a["source"]}  |  {a["section"]}'), S["meta"]),
+        Paragraph(f'<link href="{_link(a["url"])}" color="{link_color}">{_t(a["title"])}</link>', styles["lead"]),
+        Paragraph(_t(f'{a["source"]}  |  {a["section"]}'), styles["meta"]),
         Spacer(1, 4),
-        Paragraph(_t(a["summary"]), S["lead_sum"]),
+        Paragraph(_t(a["summary"]), styles["lead_sum"]),
     ]
     if why:
-        items.append(Paragraph(_t(why), S["why"]))
+        items.append(Paragraph(_t(why), styles["why"]))
     return KeepInFrame(W - 2 * M, LEAD_H, items, mode="shrink")
 
-def _section(name, ids, arts, layout, hidden):
+def _section(name, ids, arts, layout, hidden, styles, rule_color="#111111"):
     ids = [i for i in ids if i in arts and i not in hidden]
     if not ids:
         return []
-    out = [Paragraph(_t(name.upper()), S["sec"]),
-           HRFlowable(width="100%", thickness=0.8, color=INK, spaceAfter=2)]
+    out = [Paragraph(_t(name.upper()), styles["sec"]),
+           HRFlowable(width="100%", thickness=0.8, color=colors.HexColor(rule_color), spaceAfter=2)]
     for i in ids:
         a = arts[i]
         block = [
-            Paragraph(f'<link href="{_link(a["url"])}" color="#111111">{_t(a["title"])}</link>', S["title"]),
-            Paragraph(_t(a["source"]), S["meta"]),
-            Paragraph(_t(a["summary"]), S["sum"]),
+            Paragraph(f'<link href="{_link(a["url"])}" color="{rule_color}">{_t(a["title"])}</link>', styles["title"]),
+            Paragraph(_t(a["source"]), styles["meta"]),
+            Paragraph(_t(a["summary"]), styles["sum"]),
         ]
         why = layout["why"].get(str(i))
         if why:
-            block.append(Paragraph(_t(why), S["why"]))
+            block.append(Paragraph(_t(why), styles["why"]))
         else:
             block.append(Spacer(1, 5))
         out.append(KeepTogether(block))
@@ -138,7 +152,11 @@ def _section(name, ids, arts, layout, hidden):
 
 # ---------- public ----------
 def build_pdf(user, day, layout, arts, hidden=frozenset()):
-    """Return the edition as PDF bytes."""
+    """Return the edition as PDF bytes matching user's theme palette."""
+    user_theme = user.get("theme", "classic")
+    palette = PDF_PALETTES.get(user_theme, PDF_PALETTES["classic"])
+    styles = _get_styles(palette)
+    
     buf = io.BytesIO()
     doc = BaseDocTemplate(buf, pagesize=A4, leftMargin=M, rightMargin=M,
                           topMargin=M, bottomMargin=M,
@@ -151,21 +169,21 @@ def build_pdf(user, day, layout, arts, hidden=frozenset()):
 
     doc.addPageTemplates([
         PageTemplate(id="first", frames=[lead_frame] + _col_frames(first_top, "f"),
-                     onPage=_decor(user, day, True, first_top)),
+                     onPage=_decor(user, day, True, first_top, palette)),
         PageTemplate(id="later", frames=_col_frames(later_top, "l"),
-                     onPage=_decor(user, day, False, later_top)),
+                     onPage=_decor(user, day, False, later_top, palette)),
     ])
 
     story = [NextPageTemplate("later")]
     lead = layout["lead"]
     if lead in arts and lead not in hidden:
-        story.append(_lead_block(arts[lead], layout["why"].get(str(lead), "")))
+        story.append(_lead_block(arts[lead], layout["why"].get(str(lead), ""), styles, palette["ink"]))
     story.append(FrameBreak())                      # jump from lead box to column 1
 
     story += _section("Front Page", [i for i in layout["front"] if i != lead],
-                      arts, layout, hidden)
+                      arts, layout, hidden, styles, palette["ink"])
     for name in layout["section_order"]:
-        story += _section(name, layout["sections"][name], arts, layout, hidden)
+        story += _section(name, layout["sections"][name], arts, layout, hidden, styles, palette["ink"])
 
     doc.build(story)
     return buf.getvalue()

@@ -739,7 +739,10 @@ div[data-testid="stMarkdownContainer"] {
     opacity: 0.85;
 }
 
-/* ---- Streamlit Widgets Overrides for Theme Consistency & High Contrast ---- */
+div[data-testid="column"] {
+    overflow: visible !important;
+}
+
 button,
 div[data-testid="stButton"] button,
 button[kind="secondary"],
@@ -748,13 +751,36 @@ button[data-testid="baseButton-secondary"],
 button[data-testid="baseButton-primary"] {
     border-radius: var(--radius) !important;
     font-family: var(--body) !important;
-    font-size: 0.84rem !important;
+    font-size: 0.85rem !important;
     font-weight: 700 !important;
     transition: all 0.15s ease !important;
     background: var(--btn_bg) !important;
     color: var(--btn_ink) !important;
     border: 1px solid var(--btn_border) !important;
     box-shadow: 1px 1px 0 var(--rule) !important;
+    padding: 3px 2px !important;
+    min-height: 32px !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+}
+
+div[data-testid="stButton"] button div[data-testid="stMarkdownContainer"] {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+}
+
+div[data-testid="stButton"] button p {
+    font-size: 0.95rem !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
 }
 
 button *,

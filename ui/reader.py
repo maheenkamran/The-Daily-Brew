@@ -56,29 +56,26 @@ def _section(name, ids, arts, layout, uid, fb, hidden):
 # ----------------------------------------------------------------------------
 # Skeleton loader
 # ----------------------------------------------------------------------------
-def _skeleton():
+def _skeleton(day=None):
+    nice_date = datetime.strptime(day, "%Y-%m-%d").strftime("%A, %B %d, %Y") if day else "Today's Edition"
     block = (
         '<div class="sk sk-title"></div>'
         '<div class="sk sk-line"></div>'
         '<div class="sk sk-line"></div>'
         '<div class="sk sk-line" style="width:70%"></div>'
     )
-    msgs = [
-        "Gathering today's headlines across the global wire...",
-        "Your chief editor is composing today's front page...",
-        "Tuning the morning wireless audio dispatch...",
-        "Distilling your three things to know today...",
-    ]
-    status = "".join(
-        f'<div class="sk-msg" style="animation-delay:{i * 2.5}s">{m}</div>'
-        for i, m in enumerate(msgs)
-    )
     skel_html = f"""
+    <div class="masthead-wrap">
+    <div class="motto">★ THE PERSONALIZED MORNING PAPER · PREPARING EDITION ★</div>
     <div class="masthead">THE DAILY BREW</div>
-    <div class="dateline">Preparing your personalized edition...</div>
-    <div class="sk-status">{status}</div>
-    <div class="sk sk-lead"></div>
-    <div class="sk-cols"><div>{block * 2}</div><div>{block * 3}</div><div>{block * 2}</div></div>
+    <div class="dateline">📅 PRINTING EDITION FOR {nice_date.upper()} · TYPESETTING BROADSHEET...</div>
+    </div>
+    <div class="sk sk-lead" style="height:55px;margin:18px auto 14px;"></div>
+    <div class="sk-cols" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:14px;">
+    <div>{block * 2}</div>
+    <div>{block * 3}</div>
+    <div>{block * 2}</div>
+    </div>
     """
     return _clean_html(skel_html)
 
@@ -147,8 +144,15 @@ def _render_daily_learnings(layout, arts):
 # ----------------------------------------------------------------------------
 def _render_broadcast_player(user, day, layout, arts):
     """Renders the authentic vintage Valve Radio player with audio narration and transcript."""
+    nice_date = datetime.strptime(day, "%Y-%m-%d").strftime("%b %d")
     try:
-        audio_bytes, transcript = get_or_create_broadcast(user, day, layout, arts)
+        from core.broadcast import AUDIO_DIR
+        audio_file = AUDIO_DIR / f"broadcast_{user['id']}_{day}.mp3"
+        if not audio_file.exists():
+            with st.spinner(f"📻 Tuning morning wireless broadcast for {nice_date}..."):
+                audio_bytes, transcript = get_or_create_broadcast(user, day, layout, arts)
+        else:
+            audio_bytes, transcript = get_or_create_broadcast(user, day, layout, arts)
     except Exception as ex:
         st.warning(f"Wireless broadcast tuning notice: {ex}")
         return
@@ -251,12 +255,18 @@ def _render_telegraph_desk(user, layout, arts):
 # Main reader render
 # ----------------------------------------------------------------------------
 def render(user, day):
-    # 1. Load edition behind a skeleton
-    with st.spinner("Your editor is curating today's edition..."):
-        ph = st.empty()
-        ph.markdown(_skeleton(), unsafe_allow_html=True)
-        result = edition.load(user, day)
-        ph.empty()
+    is_date_change = (st.session_state.get("active_day") != day)
+
+    # 1. Load edition behind an authentic typesetting skeleton
+    ph = st.empty()
+    if is_date_change:
+        ph.markdown(_skeleton(day), unsafe_allow_html=True)
+        import time
+        time.sleep(0.35)  # Smooth transition so typeset skeleton is clearly visible
+
+    result = edition.load(user, day)
+    ph.empty()
+    st.session_state["active_day"] = day
 
     if result is None:
         st.warning(
@@ -297,8 +307,8 @@ def render(user, day):
 
     masthead_html = f"""
     <div class="masthead-wrap">
-    <div class="motto">★ THE PERSONALIZED MORNING PAPER · VOL. CXXIV · NO. 42 ★</div>
-    <div class="masthead">THE {user['name'].upper()} CHRONICLE</div>
+    <div class="motto">★ THE PERSONALIZED MORNING PAPER · CURATED FOR {user['name'].upper()} ★</div>
+    <div class="masthead">THE DAILY BREW</div>
     <div class="dateline">
     <span class="dateline-part">📅 {nice_date}</span>
     <span class="dateline-part">🗞️ {focus.upper()} DESK · {user['persona'].upper()}</span>

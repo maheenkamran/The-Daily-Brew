@@ -190,7 +190,7 @@ def article_card(a, uid, why="", lead=False, fb=None, prefix=""):
 
     # Sleek compact action ribbon
     aid = a["id"]
-    c1, c2, c3, c_read = st.columns([1, 1, 1, 2.8])
+    c1, c2, c3, c_read = st.columns([1, 1, 1, 2.2], gap="small")
 
     c1.button(
         "👍",
@@ -199,6 +199,7 @@ def article_card(a, uid, why="", lead=False, fb=None, prefix=""):
         type="primary" if "like" in fb else "secondary",
         on_click=_fb,
         args=(uid, aid, "like", topics),
+        use_container_width=True,
     )
     c2.button(
         "👎",
@@ -206,6 +207,7 @@ def article_card(a, uid, why="", lead=False, fb=None, prefix=""):
         help="Deprioritize stories like this",
         on_click=_fb,
         args=(uid, aid, "dislike", topics),
+        use_container_width=True,
     )
     c3.button(
         "✕",
@@ -213,7 +215,8 @@ def article_card(a, uid, why="", lead=False, fb=None, prefix=""):
         help="Hide this story from today's paper",
         on_click=_fb,
         args=(uid, aid, "skip", topics),
+        use_container_width=True,
     )
 
-    if c_read.button("📖 Read & Listen", key=f"{prefix}open{aid}", help="Open distraction-free reading room with audio narration"):
+    if c_read.button("📖 Read", key=f"{prefix}open{aid}", help="Open distraction-free reading room with audio narration", use_container_width=True):
         show_reading_room(a, uid, why, fb)

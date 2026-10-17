@@ -29,7 +29,7 @@ div[data-baseweb="input"]:focus-within { border-color:var(--accent) !important; 
 div[data-baseweb="input"] input { color:var(--ink) !important; font-family:var(--body); }
 [data-testid="InputInstructions"] { display:none; }
 .stTextInput label p { font-family:var(--head); font-size:.72rem !important; text-transform:uppercase; letter-spacing:.14em; font-weight:700; }.stFormSubmitButton button { width:100%; border-radius:0; background:var(--ink); border:1px solid var(--ink); font-family:var(--head); letter-spacing:.18em; text-transform:uppercase; padding:.55rem 0; transition:all .25s ease; }
-.stFormSubmitButton button, .stFormSubmitButton button p, .stFormSubmitButton button div { color:#ffffff !important; }
+.stFormSubmitButton button, .stFormSubmitButton button p, .stFormSubmitButton button div { color:#950606 !important; }
 .stFormSubmitButton button:hover { background:var(--accent); border-color:var(--accent); transform:translateY(-1px); }
 button[role="tab"] { font-family:var(--head); letter-spacing:.14em; text-transform:uppercase; font-size:.85rem; }
 button[role="tab"][aria-selected="true"] { color:var(--accent); }
@@ -63,7 +63,7 @@ def render():
     today = date.today().strftime("%A, %B %d, %Y")
     st.markdown(
         '<div class="auth-wrap">'
-        '<div class="auth-bar"><span>Vol. I &nbsp;·&nbsp; No. 1</span><span>Late City Edition</span><span>Price: Free</span></div>'
+        '<div class="auth-bar"><span>Vol. I &nbsp;·&nbsp; No. 1</span><span>Late City Edition</span></div>'
         '<div class="auth-mast">THE DAILY BREW</div>'
         f'<div class="auth-sub">{today} &nbsp;·&nbsp; Est. 2026 &nbsp;·&nbsp; Your Personal Morning Paper</div>'
         '</div>', unsafe_allow_html=True)

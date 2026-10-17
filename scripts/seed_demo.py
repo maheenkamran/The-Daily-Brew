@@ -1,102 +1,442 @@
-import sys, os, random, argparse
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import html
+from datetime import datetime
+import streamlit as st
+from core import edition
+from core.db import get_user_feedback
+from core.broadcast import get_or_create_broadcast, ask_editor
+from export.pdf import build_pdf
+from ui.components import article_card, ghost_id
+from ui import insights, sidebar
 
-from datetime import date, timedelta
-from config import SECTIONS
-from core import db
-from core.rank import score_article
 
-FRONT_N, SECTION_N, EXPLORE_N = 6, 5, 2
-EXPLORE = "Outside Your Bubble"
+# ----------------------------------------------------------------------------
+# Section rendering
+# ----------------------------------------------------------------------------
+def _section(name, ids, arts, layout, uid, fb, hidden):
+    ids = [i for i in ids if i in arts and i not in hidden]
+    if not ids:
+        return
 
-DEMO_USERS = [
-    dict(name="Alex", persona="Software Engineer",
-         interests=["Tech & AI", "Cybersecurity", "Startups"],
-         avoid=["Sports", "Celebrity Gossip"]),
-    dict(name="Sara", persona="Investor",
-         interests=["Global Markets", "Startups", "World News"],
-         avoid=["Celebrity Gossip", "Local Politics"]),
-    dict(name="Dr. Khan", persona="Academic",
-         interests=["Science", "Climate", "Space"],
-         avoid=["Sports", "Entertainment"]),
-]
+    is_bubble = "bubble" in name.lower() or "outside" in name.lower()
+    bubble_class = " section-head-bubble" if is_bubble else ""
+    bubble_icon = "🔭 " if is_bubble else ""
+    count_label = f'{len(ids)} {"story" if len(ids) == 1 else "stories"}'
 
-def ensure_demo_users():
-    existing = {u["name"] for u in db.list_users()}
-    for u in DEMO_USERS:
-        if u["name"] not in existing:
-            db.create_user(u["name"], u["persona"], u["interests"], u["avoid"])
-            print(f"[seed] created demo reader: {u['name']}")
+    st.markdown(
+        f'<div class="section-head{bubble_class}">'
+        f'<span>{bubble_icon}{name.upper()}</span>'
+        f'<span class="section-count">{count_label}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-def build_past(user, day, pool):
-    rng = random.Random(f"{user['id']}-{day}")   # same day + user = same edition every run
-    scored = []
-    for a in pool:
-        r = score_article(a, user)
-        if r:
-            scored.append((r[0] + rng.uniform(0, 0.3), a, r[1]))   # noise makes each day differ
-    if len(scored) < FRONT_N:
-        return None
-    scored.sort(key=lambda x: -x[0])
+    if is_bubble:
+        st.markdown(
+            """
+            <div class="bubble-seal-banner">
+                <div class="bubble-seal-icon">🪶</div>
+                <div>
+                    <div class="bubble-seal-title">★ The Serendipity Wire · Perspective Broadener ★</div>
+                    <div class="bubble-seal-desc">
+                        Hand-selected high-rigor journalism purposefully chosen outside your customary reading circle to disrupt algorithmic echo chambers.
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    front, rest = scored[:FRONT_N], scored[FRONT_N:]
-    buckets = {s: [] for s in SECTIONS if s != "Front Page"}
-    for sc, a, m in rest:
-        sec = a["section"] if a["section"] in buckets else "Quick Briefs"
-        if len(buckets[sec]) < SECTION_N:
-            buckets[sec].append((sc, a["id"]))
-    order = sorted((s for s in buckets if buckets[s]),
-                   key=lambda s: -sum(x[0] for x in buckets[s]))
+    for i in ids:
+        article_card(
+            arts[i], uid,
+            layout.get("why", {}).get(str(i), ""),
+            fb=fb.get(i),
+            prefix=f"{name}_",
+        )
 
-    used = {a["id"] for _, a, _ in front} | {i for v in buckets.values() for _, i in v}
-    explore = sorted((x for x in rest if not x[2] and x[1]["id"] not in used),
-                     key=lambda x: -x[1]["quality_score"])[:EXPLORE_N]
-    if explore:
-        buckets[EXPLORE] = [(sc, a["id"]) for sc, a, _ in explore]
-        order.append(EXPLORE)
 
-    why = {}
-    for sc, a, m in scored:
-        why[str(a["id"])] = (f"Because you follow {', '.join(m[:2])}" if m
-                             else "A top story across that day's sources")
-    for _, a, _ in explore:
-        why[str(a["id"])] = "Outside your usual interests, but too important to miss"
+# ----------------------------------------------------------------------------
+# Skeleton loader
+# ----------------------------------------------------------------------------
+def _skeleton():
+    block = (
+        '<div class="sk sk-title"></div>'
+        '<div class="sk sk-line"></div>'
+        '<div class="sk sk-line"></div>'
+        '<div class="sk sk-line" style="width:70%"></div>'
+    )
+    msgs = [
+        "Gathering today's headlines across the global wire...",
+        "Your chief editor is composing today's front page...",
+        "Tuning the morning wireless audio dispatch...",
+        "Distilling your three things to know today...",
+    ]
+    status = "".join(
+        f'<div class="sk-msg" style="animation-delay:{i * 2.5}s">{m}</div>'
+        for i, m in enumerate(msgs)
+    )
+    return (
+        '<div class="masthead">THE DAILY BREW</div>'
+        '<div class="dateline">Preparing your personalized edition...</div>'
+        f'<div class="sk-status">{status}</div>'
+        '<div class="sk sk-lead"></div>'
+        f'<div class="sk-cols"><div>{block * 2}</div><div>{block * 3}</div><div>{block * 2}</div></div>'
+    )
 
-    takeaways = [(a["summary"] or a["title"]).split(". ")[0].strip() for _, a, _ in front[:3]]
 
-    return {
-        "lead": front[0][1]["id"],
-        "front": [a["id"] for _, a, _ in front],
-        "sections": {s: [i for _, i in buckets[s]] for s in order},
-        "section_order": order,
-        "why": why,
-        "takeaways": takeaways,
-    }
+# ----------------------------------------------------------------------------
+# "The Daily 3: What You Learned Today"
+# ----------------------------------------------------------------------------
+def _render_daily_learnings(layout, arts):
+    """Solves the problem statement directly: reader can always name three things they learned."""
+    takeaways = layout.get("takeaways") or []
+    if not takeaways:
+        # Fallback extraction from front articles
+        front_ids = layout.get("front", [])[:3]
+        takeaways = []
+        for i in front_ids:
+            if i in arts:
+                a = arts[i]
+                sum_text = a.get("summary") or a.get("title") or ""
+                first_sent = sum_text.split(". ")[0].strip()
+                if first_sent and not first_sent.endswith("."):
+                    first_sent += "."
+                takeaways.append({
+                    "id": a["id"],
+                    "title": a["title"],
+                    "source": a.get("source", "The Wire"),
+                    "takeaway": first_sent or a["title"],
+                })
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--days", type=int, default=4, help="how many past days to fill")
-    ap.add_argument("--reset", action="store_true", help="overwrite existing past editions")
-    args = ap.parse_args()
+    if not takeaways:
+        return
 
-    db.init_db()
-    pool = db.get_articles_since("1970-01-01")      # every article in the database
-    if not pool:
-        print("[seed] no articles yet. Run: python scripts/run_daily.py"); return
+    cards_html = ""
+    for idx, item in enumerate(takeaways[:3], 1):
+        if isinstance(item, dict):
+            source = item.get("source", "Dispatch")
+            takeaway_text = item.get("takeaway", "")
+            title_text = item.get("title", "")
+        else:
+            source = "Editorial Dispatch"
+            takeaway_text = str(item)
+            title_text = "Key Takeaway"
 
-    ensure_demo_users()
-    made = 0
-    for u in db.list_users():
-        user = db.get_user(u["id"])
-        for k in range(1, args.days + 1):
-            day = (date.today() - timedelta(days=k)).isoformat()
-            if db.get_edition(user["id"], day) and not args.reset:
-                continue
-            layout = build_past(user, day, pool)
-            if layout:
-                db.save_edition(user["id"], day, layout)
-                made += 1
-    print(f"[seed] saved {made} past editions")
+        cards_html += f"""
+        <div class="takeaway-card">
+            <span class="takeaway-badge">[ 0{idx} · {html.escape(source)} ]</span>
+            <div class="takeaway-text">{html.escape(takeaway_text)}</div>
+            <div class="takeaway-source">{html.escape(title_text)}</div>
+        </div>
+        """
 
-if __name__ == "__main__":
-    main()
+    st.markdown(
+        f"""
+        <div class="takeaways-box">
+            <div class="takeaways-head">
+                <div class="takeaways-title">❦ Today's Three Key Learnings ❦</div>
+                <div class="takeaways-sub">The essential takeaways distilled from today's global wire</div>
+            </div>
+            <div class="takeaway-grid">
+                {cards_html}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ----------------------------------------------------------------------------
+# The Morning Wireless Broadcast Player
+# ----------------------------------------------------------------------------
+def _render_broadcast_player(user, day, layout, arts):
+    """Renders the authentic vintage Valve Radio player with audio narration and transcript."""
+    try:
+        audio_bytes, transcript = get_or_create_broadcast(user, day, layout, arts)
+    except Exception as ex:
+        st.warning(f"Wireless broadcast tuning notice: {ex}")
+        return
+
+    st.markdown(
+        f"""
+        <div class="radio-station-box">
+            <div class="radio-topbar">
+                <div class="radio-station-name">
+                    <span>📻 THE DAILY BREW WIRELESS DESK</span>
+                    <span class="radio-frequency">98.4 FM</span>
+                </div>
+                <div class="radio-on-air">
+                    <span class="radio-lamp"></span>
+                    <span>ON AIR · 90-SEC AUDIO BRIEFING</span>
+                </div>
+            </div>
+            <div class="radio-sub">
+                Listen to your curated morning broadcast while enjoying your morning coffee or commuting. Narrated by our vintage wireless anchor.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    c_audio, c_down = st.columns([4, 1.2])
+    with c_audio:
+        st.audio(audio_bytes, format="audio/mp3")
+    with c_down:
+        st.download_button(
+            "⬇️ Download Audio",
+            data=audio_bytes,
+            file_name=f"wireless-broadcast-{user['name'].lower()}-{day}.mp3",
+            mime="audio/mp3",
+            use_container_width=True,
+            help="Download audio file for listening offline during commute",
+        )
+
+    with st.expander("📜 Read Wireless Broadcast Wire Script"):
+        st.markdown(
+            f'<div class="radio-transcript-wrap">{html.escape(transcript)}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+# ----------------------------------------------------------------------------
+# The Telegraph Wire: Ask Your Morning Editor
+# ----------------------------------------------------------------------------
+def _render_telegraph_desk(user, layout, arts):
+    """Interactive AI Editor Q&A: reader can inquire about today's edition."""
+    st.markdown(
+        f"""
+        <div class="telegraph-box">
+            <div class="telegraph-head">
+                <div class="telegraph-title">✉️ The Telegraph Desk · Inquire With Your Editor</div>
+                <div class="telegraph-badge">DIRECT WIRE TO CHIEF EDITOR</div>
+            </div>
+            <div class="telegraph-sub">
+                Have a question regarding today's developments? Send a telegraph dispatch to your personal editor for an informed briefing.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    suggested = [
+        f"How does today's top story impact my role as {user['persona']}?",
+        "Give me a 3-bullet summary of today's tech developments.",
+        "What is the key takeaway from the story outside my bubble?",
+    ]
+
+    pill_choice = st.pills(
+        "Suggested Inquiries",
+        options=suggested,
+        label_visibility="collapsed",
+        key="telegraph_pill",
+    )
+
+    with st.form("telegraph_form", clear_on_submit=False):
+        default_val = pill_choice if pill_choice else ""
+        query = st.text_input(
+            "Your Telegraph Dispatch",
+            value=default_val,
+            placeholder="e.g. What are the key market implications in today's paper?",
+            key="telegraph_input",
+        )
+        submit = st.form_submit_button("Transmit Telegraph 📨")
+
+    if submit and query.strip():
+        with st.spinner("Chief Editor is reviewing today's dispatches..."):
+            reply = ask_editor(user, query, layout, arts)
+            st.session_state["last_editor_reply"] = {"query": query, "reply": reply}
+
+    if st.session_state.get("last_editor_reply"):
+        item = st.session_state["last_editor_reply"]
+        st.markdown(
+            f"""
+            <div class="telegraph-reply">
+                <div class="telegraph-reply-head">❦ Telegraph Dispatch From Chief Editor · Regarding: "{html.escape(item['query'])}"</div>
+                {item['reply']}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+# ----------------------------------------------------------------------------
+# Main reader render
+# ----------------------------------------------------------------------------
+def render(user, day):
+    # 1. Load edition behind a skeleton
+    with st.spinner("Your editor is curating today's edition..."):
+        ph = st.empty()
+        ph.markdown(_skeleton(), unsafe_allow_html=True)
+        result = edition.load(user, day)
+        ph.empty()
+
+    if result is None:
+        st.warning(
+            "No articles fetched for today yet. "
+            "Run `python scripts/run_daily.py` to populate."
+        )
+        return
+
+    layout, arts = result
+    uid = user["id"]
+    fb = get_user_feedback(uid)
+
+    # Ghost article stays visible one tick so it can animate out
+    hidden_all = {i for i, acts in fb.items() if acts & {"skip", "dislike"}}
+    g = ghost_id()
+    hidden = hidden_all - ({g} if g else set())
+
+    # 2. Edition stats
+    visible_ids = [aid for aid in arts if aid not in hidden_all]
+    total_articles = len(visible_ids)
+    total_words = sum(len((arts[aid].get("summary") or "").split()) for aid in visible_ids)
+    est_reading_time = max(3, total_words // 130)
+
+    # 3. Sidebar: single download action
+    pdf_bytes = build_pdf(user, day, layout, arts, hidden)
+    st.sidebar.download_button(
+        "⬇️  Download Broadsheet PDF",
+        data=pdf_bytes,
+        file_name=f"morning-paper-{user['name'].lower()}-{day}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
+
+    # 4. Grand BroadSheet Masthead & Dateline
+    interests = user.get("interests", {})
+    focus = max(interests, key=interests.get) if interests else "General"
+    nice_date = datetime.strptime(day, "%Y-%m-%d").strftime("%A, %B %d, %Y")
+
+    st.markdown(
+        f"""
+        <div class="masthead-wrap">
+            <div class="motto">★ THE PERSONALIZED MORNING PAPER · CURATED FOR {user['name'].upper()} ★</div>
+            <div class="masthead">THE DAILY BREW</div>
+            <div class="dateline">
+                <span class="dateline-part">📅 {nice_date}</span>
+                <span class="dateline-part">🗞️ {focus.upper()} DESK · {user['persona'].upper()}</span>
+                <span class="dateline-part">⏱️ ~{est_reading_time} MIN READ · {total_articles} DISPATCHES</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # 5. Live AI tuning strip (compact & reactive)
+    insights.strip(user)
+
+    # 6. "The Daily 3: What You Learned Today" (Distilled Executive Bulletin)
+    _render_daily_learnings(layout, arts)
+
+    # 7. The Morning Wireless Broadcast Player (Audio Narration & Transcript)
+    _render_broadcast_player(user, day, layout, arts)
+
+    # 8. View Mode / Section Navigator
+    order = layout.get("section_order", [])
+    view_options = ["📰 Broadsheet Front Page", "☕ 3-Min Espresso Scan", "🔭 Outside Your Bubble"] + order
+    selected_view = st.pills(
+        "Edition Section View",
+        options=view_options,
+        default="📰 Broadsheet Front Page",
+        label_visibility="collapsed",
+    )
+
+    # 9. Render Content according to Selected View
+    if selected_view == "☕ 3-Min Espresso Scan":
+        _render_espresso_scan(layout, arts, uid, fb, hidden)
+    elif selected_view == "🔭 Outside Your Bubble":
+        _render_outside_bubble(layout, arts, uid, fb, hidden)
+    elif selected_view == "📰 Broadsheet Front Page":
+        _render_broadsheet(layout, arts, uid, fb, hidden, order)
+    else:
+        _render_single_section(selected_view, layout, arts, uid, fb, hidden)
+
+    # 10. The Telegraph Wire: Interactive Q&A with Editor
+    st.markdown('<div class="vintage-flourish">❦ ❖ ❦</div>', unsafe_allow_html=True)
+    _render_telegraph_desk(user, layout, arts)
+
+    # 11. Sidebar footer
+    sidebar.footer(user)
+
+
+# ----------------------------------------------------------------------------
+# Content Renderers
+# ----------------------------------------------------------------------------
+def _render_espresso_scan(layout, arts, uid, fb, hidden):
+    """Quick 3-minute morning coffee view focusing strictly on the lead and top front stories."""
+    lead = layout["lead"]
+    st.markdown(
+        """
+        <div style="font-family:var(--head);font-size:1.1rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin:10px 0 16px;border-bottom:2px solid var(--rule);padding-bottom:6px;">
+            ☕ THE 3-MINUTE ESPRESSO SCAN · TOP PRIORITIES ONLY
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if lead in arts and lead not in hidden:
+        article_card(
+            arts[lead], uid,
+            layout.get("why", {}).get(str(lead), ""),
+            lead=True,
+            fb=fb.get(lead),
+            prefix="espresso_lead_",
+        )
+
+    front_ids = [i for i in layout.get("front", []) if i != lead and i not in hidden][:3]
+    c1, c2 = st.columns(2, gap="medium")
+    for idx, aid in enumerate(front_ids):
+        col = c1 if idx % 2 == 0 else c2
+        with col:
+            article_card(
+                arts[aid], uid,
+                layout.get("why", {}).get(str(aid), ""),
+                fb=fb.get(aid),
+                prefix=f"espresso_front_{idx}_",
+            )
+
+
+def _render_outside_bubble(layout, arts, uid, fb, hidden):
+    """Dedicated perspective-broadening view."""
+    explore_ids = layout.get("sections", {}).get("Outside Your Bubble", [])
+    _section("Outside Your Bubble", explore_ids, arts, layout, uid, fb, hidden)
+
+
+def _render_single_section(view, layout, arts, uid, fb, hidden):
+    if view in layout.get("sections", {}):
+        _section(view, layout["sections"][view], arts, layout, uid, fb, hidden)
+
+
+def _render_broadsheet(layout, arts, uid, fb, hidden, order):
+    """Harmonious, uncluttered 3-column vintage newspaper broadsheet layout."""
+    # 1. Hero Lead Article across center or top
+    lead = layout["lead"]
+    if lead in arts and lead not in hidden:
+        article_card(
+            arts[lead], uid,
+            layout.get("why", {}).get(str(lead), ""),
+            lead=True,
+            fb=fb.get(lead),
+            prefix="lead_hero_",
+        )
+
+    # 2. Balanced 3-column newspaper grid
+    left, center, right = st.columns([1, 1, 1], gap="large")
+
+    # Distribute front page stories and categorical sections
+    front_others = [i for i in layout.get("front", []) if i != lead and i not in hidden]
+
+    with left:
+        _section("Front Page Wire", front_others[:3], arts, layout, uid, fb, hidden)
+        if order:
+            _section(order[0], layout["sections"].get(order[0], []), arts, layout, uid, fb, hidden)
+
+    with center:
+        if len(front_others) > 3:
+            _section("Front Page Continued", front_others[3:], arts, layout, uid, fb, hidden)
+        if len(order) > 1:
+            _section(order[1], layout["sections"].get(order[1], []), arts, layout, uid, fb, hidden)
+
+    with right:
+        # Sections beyond first two, including Outside Your Bubble
+        for s in order[2:]:
+            _section(s, layout["sections"].get(s, []), arts, layout, uid, fb, hidden)

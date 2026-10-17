@@ -2,6 +2,7 @@ from datetime import datetime
 import streamlit as st
 from core import edition
 from core.db import get_user_feedback
+from export.pdf import build_pdf
 from ui.components import article_card
 
 def _section(name, ids, arts, layout, uid, fb, hidden):
@@ -22,6 +23,12 @@ def render(user, day):
     uid = user["id"]
     fb = get_user_feedback(uid)
     hidden = {i for i, acts in fb.items() if "skip" in acts}
+    
+    st.sidebar.download_button(
+    "⬇️ Download PDF",
+    data=build_pdf(user, day, layout, arts, hidden),
+    file_name=f"morning-paper-{day}.pdf",
+    mime="application/pdf")
 
     interests = user["interests"]
     focus = max(interests, key=interests.get) if interests else "General"

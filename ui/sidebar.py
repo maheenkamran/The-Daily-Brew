@@ -25,9 +25,7 @@ def render(user):
     if sb.button("♻️ Rebuild today's edition"):
         edition.rebuild_today(user)
         st.rerun()
-
-    sb.button("⬇️ Download PDF (Phase 4)", disabled=True)
-
+        
     if sb.button("Switch reader"):
         st.session_state.pop("user_id", None)
         st.session_state.pop("step", None)

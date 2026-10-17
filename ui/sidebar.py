@@ -82,6 +82,10 @@ def render(user):
         f'<div class="sb-meta"><span>No. {user["id"]:04d}</span><span>Since {since}</span></div></div>',
         unsafe_allow_html=True)
 
+    if sb.button("⚙️ Retune Wire & Profile", key="retune_profile_btn", help="Update your persona, interests, and noise filters", use_container_width=True):
+        st.session_state["edit_profile"] = True
+        st.rerun()
+
     _label("The Archive")
     dates = list_edition_dates(user["id"])
     if TODAY() not in dates:

@@ -60,7 +60,7 @@ def _link(url):
 def _decor(user, day, first, col_top, palette):
     interests = user.get("interests", {})
     focus = max(interests, key=interests.get) if interests else "General"
-    title = _clean(f"THE {user['name'].upper()} CHRONICLE")
+    title = _clean("THE DAILY BREW")
     nice = datetime.strptime(day, "%Y-%m-%d").strftime("%A, %B %d, %Y").upper()
     dateline = _clean(f"{nice}   |   {focus.upper()} EDITION   |   {user['persona'].upper()}")
 
@@ -151,8 +151,14 @@ def _section(name, ids, arts, layout, hidden, styles, rule_color="#111111"):
     return out
 
 # ---------- public ----------
+_PDF_CACHE = {}
+
 def build_pdf(user, day, layout, arts, hidden=frozenset()):
     """Return the edition as PDF bytes matching user's theme palette."""
+    cache_key = f"{user['id']}_{day}_{user.get('theme', 'classic')}_{len(hidden)}"
+    if cache_key in _PDF_CACHE:
+        return _PDF_CACHE[cache_key]
+
     user_theme = user.get("theme", "classic")
     palette = PDF_PALETTES.get(user_theme, PDF_PALETTES["classic"])
     styles = _get_styles(palette)
@@ -160,7 +166,7 @@ def build_pdf(user, day, layout, arts, hidden=frozenset()):
     buf = io.BytesIO()
     doc = BaseDocTemplate(buf, pagesize=A4, leftMargin=M, rightMargin=M,
                           topMargin=M, bottomMargin=M,
-                          title=_clean(f"The {user['name']} Chronicle - {day}"),
+                          title=_clean(f"The Daily Brew - {day}"),
                           author="The Daily Brew")
 
     first_top = H - M - MAST_H - LEAD_H - 4 * mm
@@ -186,4 +192,6 @@ def build_pdf(user, day, layout, arts, hidden=frozenset()):
         story += _section(name, layout["sections"][name], arts, layout, hidden, styles, palette["ink"])
 
     doc.build(story)
-    return buf.getvalue()
+    res = buf.getvalue()
+    _PDF_CACHE[cache_key] = res
+    return res

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import date
 
 load_dotenv()
 
@@ -22,3 +23,23 @@ AVOID_SUGGESTIONS = ["Celebrity Gossip", "Local Politics", "Sports",
                      "Crime", "Entertainment", "Elections"]
 
 SECTIONS = ["Front Page", "Tech & Code", "Deep Dives", "Quick Briefs"]
+
+TODAY = lambda: date.today().isoformat()
+
+FEEDS = {
+    "BBC News":     "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "BBC Tech":     "https://feeds.bbci.co.uk/news/technology/rss.xml",
+    "NPR":          "https://feeds.npr.org/1001/rss.xml",
+    "Al Jazeera":   "https://www.aljazeera.com/xml/rss/all.xml",
+    "TechCrunch":   "https://techcrunch.com/feed/",
+    "Ars Technica": "https://feeds.arstechnica.com/arstechnica/index",
+    "The Verge":    "https://www.theverge.com/rss/index.xml",
+    "Hacker News":  "https://hnrss.org/frontpage",
+}
+
+GOOGLE_NEWS = "https://news.google.com/rss/search?q={q}+when:2d&hl=en-US&gl=US&ceid=US:en"
+
+MAX_PER_FEED = 10        # per generic feed
+MAX_PER_INTEREST = 8     # per Google News interest search
+BATCH_SIZE = 15          # articles per Gemini call
+MAX_ARTICLES = 90        # hard cap per run, protects free-tier quota

@@ -66,3 +66,95 @@ def get_user(uid):
 def list_users():
     with get_conn() as c:
         return [dict(r) for r in c.execute("SELECT id, name FROM users")]
+    
+def existing_urls():
+    with get_conn() as c:
+        return {r["url"] for r in c.execute("SELECT url FROM articles")}
+
+def save_articles(rows):
+    """rows: list of dicts with article columns."""
+    with get_conn() as c:
+        c.executemany(
+            """INSERT OR IGNORE INTO articles
+               (url, title, source, published, summary, section, topics, quality_score, fetched_date)
+               VALUES (:url,:title,:source,:published,:summary,:section,:topics,:quality_score,:fetched_date)""",
+            rows)
+
+def get_articles_by_date(day):
+    with get_conn() as c:
+        rows = [dict(r) for r in c.execute(
+            "SELECT * FROM articles WHERE fetched_date=?", (day,))]
+    for r in rows:
+        r["topics"] = json.loads(r["topics"])
+    return rows
+
+def all_interests():
+    with get_conn() as c:
+        return [r["topic"] for r in c.execute("SELECT DISTINCT topic FROM user_interests")]
+    
+def get_articles_since(day_iso):
+    with get_conn() as c:
+        rows = [dict(r) for r in c.execute(
+            "SELECT * FROM articles WHERE fetched_date>=?", (day_iso,))]
+    for r in rows:
+        r["topics"] = json.loads(r["topics"] or "[]")
+    return rows
+
+def latest_article_date():
+    with get_conn() as c:
+        return c.execute("SELECT MAX(fetched_date) AS d FROM articles").fetchone()["d"]
+
+def get_articles_by_ids(ids):
+    if not ids:
+        return []
+    q = ",".join("?" * len(ids))
+    with get_conn() as c:
+        rows = [dict(r) for r in c.execute(f"SELECT * FROM articles WHERE id IN ({q})", list(ids))]
+    for r in rows:
+        r["topics"] = json.loads(r["topics"] or "[]")
+    return rows
+
+# ---- editions (frozen) ----
+def save_edition(uid, day, layout):
+    with get_conn() as c:
+        c.execute("INSERT OR REPLACE INTO editions (user_id, date, layout) VALUES (?,?,?)",
+                  (uid, day, json.dumps(layout)))
+
+def get_edition(uid, day):
+    with get_conn() as c:
+        r = c.execute("SELECT layout FROM editions WHERE user_id=? AND date=?", (uid, day)).fetchone()
+    return json.loads(r["layout"]) if r else None
+
+def delete_edition(uid, day):
+    with get_conn() as c:
+        c.execute("DELETE FROM editions WHERE user_id=? AND date=?", (uid, day))
+
+def list_edition_dates(uid):
+    with get_conn() as c:
+        return [r["date"] for r in c.execute(
+            "SELECT date FROM editions WHERE user_id=? ORDER BY date DESC", (uid,))]
+
+# ---- feedback + theme ----
+def log_feedback(uid, aid, action):
+    with get_conn() as c:
+        if action in ("like", "dislike"):
+            same = c.execute(
+                "SELECT id FROM feedback WHERE user_id=? AND article_id=? AND action=?",
+                (uid, aid, action)).fetchone()
+            c.execute("DELETE FROM feedback WHERE user_id=? AND article_id=? AND action IN ('like','dislike')",
+                      (uid, aid))
+            if same:          # clicking again toggles it off
+                return
+        c.execute("INSERT INTO feedback (user_id, article_id, action) VALUES (?,?,?)",
+                  (uid, aid, action))
+
+def get_user_feedback(uid):
+    out = {}
+    with get_conn() as c:
+        for r in c.execute("SELECT article_id, action FROM feedback WHERE user_id=?", (uid,)):
+            out.setdefault(r["article_id"], set()).add(r["action"])
+    return out
+
+def update_theme(uid, theme):
+    with get_conn() as c:
+        c.execute("UPDATE users SET theme=? WHERE id=?", (theme, uid))

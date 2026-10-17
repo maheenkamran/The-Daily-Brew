@@ -1,7 +1,9 @@
-import html, time
+import html
+import time
 import streamlit as st
 
 WINDOW = 6
+
 
 def _changes():
     last = st.session_state.get("last_fb")
@@ -9,41 +11,64 @@ def _changes():
         return {t.lower(): d for t, d in last["changes"]}
     return {}
 
-def _pct(w):
-    return max(0.0, min(abs(w) / 3, 1.0)) * 100
 
-def _top(user, n):
-    return sorted(user["interests"].items(), key=lambda x: -abs(x[1]))[:n]
+def _top_positive(user, n=6):
+    """Only return topics the reader actually prefers (positive weight), sorted by preference."""
+    interests = user.get("interests", {})
+    pos = [(t, w) for t, w in interests.items() if w > 0]
+    return sorted(pos, key=lambda x: -x[1])[:n]
+
 
 def render(user):
-    """Sidebar: live weight bars. Changed topics slide, glow, and show a floating delta."""
+    """Sidebar: your reading compass. Friendly, encouraging positive preferences only."""
     chg = _changes()
     rows = ""
-    for t, w in _top(user, 8):
+    for t, w in _top_positive(user, 6):
         d = chg.get(t.lower(), 0)
-        frm, to = _pct(w - d), _pct(w)
-        tag = (f'<span class="delta {"up" if d > 0 else "down"}">'
-               f'{"▲" if d > 0 else "▼"} {d:+.1f}</span>') if d else ""
-        rows += (f'<div class="wrow{" bump" if d else ""}">'
-                 f'<div class="wlabel"><span>{html.escape(t.title())}</span><b>{w:.1f}{tag}</b></div>'
-                 f'<div class="wtrack"><div class="wfill{" neg" if w < 0 else ""}" '
-                 f'style="--from:{frm:.0f}%;--to:{to:.0f}%"></div></div></div>')
+        # Friendly positive status label instead of intimidating numbers
+        if w >= 2.0:
+            status = "★ Top Focus"
+        elif w >= 1.3:
+            status = "Prioritized"
+        else:
+            status = "Following"
+
+        boost_tag = '<span class="delta up">▲ More</span>' if d > 0 else ""
+        pct = min(100, max(25, int((w / 2.8) * 100)))
+        rows += (
+            f'<div class="wrow{" bump" if d > 0 else ""}">'
+            f'<div class="wlabel"><span>{html.escape(t.title())}</span><b>{status}{boost_tag}</b></div>'
+            f'<div class="wtrack"><div class="wfill" style="--to:{pct}%;width:{pct}%"></div></div>'
+            f'</div>'
+        )
+
     if not rows:
-        rows = '<div class="meta">Like or hide a few stories to start tuning.</div>'
+        rows = (
+            '<div class="meta" style="font-size:0.78rem;opacity:0.8;padding:6px 0;line-height:1.4;">'
+            'Like articles in today\'s edition to personalize your reading compass.'
+            '</div>'
+        )
+
     st.sidebar.markdown(
-        '<div class="live-title"><span class="dot"></span>Your Active Personalization Weights</div>' + rows,
-        unsafe_allow_html=True)
+        '<div class="live-title"><span class="dot"></span>Your Reading Compass</div>' + rows,
+        unsafe_allow_html=True,
+    )
+
 
 def strip(user):
-    """Main page: chips for the top topics. Changed ones flash with their delta."""
+    """Main page: clean, elegant badges for topics you prefer. Never show negative/scary formulas."""
     chg = _changes()
     chips = ""
-    for t, w in _top(user, 6):
+    for t, w in _top_positive(user, 5):
         d = chg.get(t.lower(), 0)
-        arrow = f' {"▲" if d > 0 else "▼"} {d:+.1f}' if d else ""
-        chips += (f'<span class="chip{" bump" if d else ""}{" neg" if w < 0 else ""}">'
-                  f'{html.escape(t.title())} · {w:.1f}{arrow}</span>')
+        boost = " ▲ More" if d > 0 else ""
+        chips += (
+            f'<span class="chip{" bump" if d > 0 else ""}">'
+            f'★ {html.escape(t.title())}{boost}</span>'
+        )
     if chips:
-        st.markdown('<div class="strip"><span class="live-title" style="margin:0 8px 0 0">'
-                    '<span class="dot"></span>AI tuning</span>' + chips + '</div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="strip"><span class="live-title" style="margin:0 8px 0 0;font-size:0.75rem;">'
+            '<span class="dot"></span>Curated For You:</span>' + chips + '</div>',
+            unsafe_allow_html=True,
+        )

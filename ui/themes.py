@@ -7,8 +7,8 @@ THEMES = {
         "emoji": "📰",
         "bg": "#f6f0e1",
         "panel": "#ede5cf",
-        "card": "rgba(255, 255, 255, 0.65)",
-        "card_border": "rgba(17, 17, 17, 0.22)",
+        "card": "#ffffff",
+        "card_border": "rgba(17, 17, 17, 0.25)",
         "card_hover": "#ffffff",
         "ink": "#111111",
         "ink_muted": "#555555",
@@ -22,9 +22,9 @@ THEMES = {
         "shadow": "0 2px 8px rgba(0,0,0,0.06)",
         "head": "'Playfair Display', Georgia, serif",
         "body": "Georgia, 'Times New Roman', serif",
-        "btn_bg": "rgba(255, 255, 255, 0.8)",
+        "btn_bg": "#ffffff",
         "btn_ink": "#111111",
-        "btn_border": "rgba(17, 17, 17, 0.3)",
+        "btn_border": "#111111",
     },
     "dark": {
         "name": "Modern Midnight",
@@ -434,73 +434,577 @@ div[data-testid="stMarkdownContainer"] {
     color: var(--ink);
 }
 
-.curator-box {
-    font-size: 0.76rem;
+
+.curator-box, .why {
+    font-size: 0.8rem;
     font-style: italic;
     color: var(--ink);
     background: var(--accent_bg);
     border-left: 3px solid var(--accent);
-    padding: 5px 10px;
-    margin: 8px 0 4px;
+    padding: 6px 12px;
+    margin: 8px 0 6px;
     border-radius: 0 var(--radius) var(--radius) 0;
+    line-height: 1.4;
 }
 
-/* ---- Streamlit Widgets Overrides for Theme Consistency ---- */
-.stButton > button {
+/* Vintage Drop Cap for Lead Article */
+.drop-cap::first-letter {
+    font-family: var(--head);
+    font-size: 3.2rem;
+    float: left;
+    line-height: 0.85;
+    margin-right: 8px;
+    color: var(--accent);
+    font-weight: 900;
+}
+
+/* ---- Vintage Radio Broadcast Player ---- */
+.radio-station-box {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: 4px 4px 0 var(--rule), var(--shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.radio-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--rule);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.radio-station-name {
+    font-family: var(--head);
+    font-size: 0.95rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.radio-frequency {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    background: var(--accent_bg);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--accent);
+}
+
+.radio-on-air {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #c0392b;
+}
+
+.radio-lamp {
+    width: 9px;
+    height: 9px;
+    background: #e74c3c;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #e74c3c;
+    animation: pulse 1.2s infinite;
+}
+
+.radio-sub {
+    font-size: 0.84rem;
+    line-height: 1.45;
+    margin-bottom: 12px;
+    color: var(--ink);
+}
+
+.radio-transcript-wrap {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    background: var(--card);
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    border-left: 3px solid var(--accent);
+    font-family: var(--body);
+}
+
+/* ---- The Daily 3 Takeaways Bulletin ---- */
+.takeaways-box {
+    background: var(--card);
+    border: 2px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 22px;
+    box-shadow: 4px 4px 0 var(--rule);
+}
+
+.takeaways-head {
+    text-align: center;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+}
+
+.takeaways-title {
+    font-family: var(--head);
+    font-size: 1.15rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+}
+
+.takeaways-sub {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink_muted);
+    font-style: italic;
+}
+
+.takeaway-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.takeaway-card {
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    padding: 10px 14px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    transition: transform 0.15s ease;
+}
+
+.takeaway-card:hover {
+    transform: translateY(-2px);
+}
+
+.takeaway-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.takeaway-text {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--ink);
+    margin-bottom: 4px;
+}
+
+.takeaway-source {
+    font-size: 0.72rem;
+    color: var(--ink_muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ---- Outside Your Bubble Wax Seal ---- */
+.bubble-seal-banner {
+    background: var(--panel);
+    border: 1px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin: 10px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bubble-seal-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.bubble-seal-title {
+    font-family: var(--head);
+    font-size: 0.84rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+}
+
+.bubble-seal-desc {
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--ink_muted);
+}
+
+/* ---- Telegraph Desk (Ask Your Editor) ---- */
+.telegraph-box {
+    background: var(--panel);
+    border: 2px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin-top: 36px;
+    margin-bottom: 20px;
+    box-shadow: 4px 4px 0 var(--rule);
+}
+
+.telegraph-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.telegraph-title {
+    font-family: var(--head);
+    font-weight: 900;
+    font-size: 1.05rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.telegraph-badge {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink_muted);
+    font-weight: 700;
+}
+
+.telegraph-sub {
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-bottom: 12px;
+}
+
+.telegraph-reply {
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    padding: 14px 18px;
+    margin-top: 14px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--ink);
+}
+
+.telegraph-reply-head {
+    font-family: var(--head);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+}
+
+/* ---- Compact Article Card Action Ribbon ---- */
+.card-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    margin-top: 8px;
+    border-top: 1px dotted var(--rule);
+}
+
+.vintage-flourish {
+    text-align: center;
+    color: var(--accent);
+    font-size: 1.2rem;
+    letter-spacing: 0.5em;
+    margin: 18px 0;
+    opacity: 0.85;
+}
+
+/* ---- Streamlit Widgets Overrides for Theme Consistency & High Contrast ---- */
+button,
+div[data-testid="stButton"] button,
+button[kind="secondary"],
+button[kind="primary"],
+button[data-testid="baseButton-secondary"],
+button[data-testid="baseButton-primary"] {
     border-radius: var(--radius) !important;
     font-family: var(--body) !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
     transition: all 0.15s ease !important;
     background: var(--btn_bg) !important;
     color: var(--btn_ink) !important;
     border: 1px solid var(--btn_border) !important;
+    box-shadow: 1px 1px 0 var(--rule) !important;
 }
 
-.stButton > button:hover {
+button *,
+div[data-testid="stButton"] button *,
+button[kind="secondary"] *,
+button[data-testid="baseButton-secondary"] * {
+    color: var(--btn_ink) !important;
+    font-weight: 700 !important;
+}
+
+button:hover,
+div[data-testid="stButton"] button:hover {
     border-color: var(--accent) !important;
-    color: var(--accent) !important;
+    background: var(--accent) !important;
+    color: #ffffff !important;
     transform: translateY(-1px) !important;
 }
 
-.stButton > button[kind="primary"] {
+button:hover *,
+div[data-testid="stButton"] button:hover * {
+    color: #ffffff !important;
+}
+
+/* Primary buttons (e.g. Active reactions or main CTA) */
+button[kind="primary"],
+button[data-testid="baseButton-primary"] {
     background: var(--accent) !important;
     color: #ffffff !important;
     border-color: var(--accent) !important;
 }
 
-.stLinkButton > a {
+button[kind="primary"] *,
+button[data-testid="baseButton-primary"] * {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* Download buttons ("Download Audio", "Download Broadsheet PDF") */
+div[data-testid="stDownloadButton"] > button,
+div[data-testid="stDownloadButton"] button {
+    background: var(--accent) !important;
+    color: #ffffff !important;
+    border: 1px solid var(--accent) !important;
+    font-family: var(--head) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 2px 2px 0 var(--rule) !important;
+    text-transform: uppercase !important;
+}
+
+div[data-testid="stDownloadButton"] > button *,
+div[data-testid="stDownloadButton"] button * {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+
+div[data-testid="stDownloadButton"] > button:hover {
+    filter: brightness(1.15) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Link buttons ("Read Original Article") */
+.stLinkButton > a,
+div[data-testid="stLinkButton"] > a {
     border-radius: var(--radius) !important;
     font-family: var(--body) !important;
-    font-size: 0.8rem !important;
-    font-weight: 600 !important;
-    background: var(--card) !important;
-    color: var(--ink) !important;
-    border: 1px solid var(--rule) !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    background: var(--btn_bg) !important;
+    color: var(--btn_ink) !important;
+    border: 1px solid var(--btn_border) !important;
     transition: all 0.15s ease !important;
+    box-shadow: 1px 1px 0 var(--rule) !important;
+}
+
+.stLinkButton > a *,
+div[data-testid="stLinkButton"] > a * {
+    color: var(--btn_ink) !important;
+    font-weight: 700 !important;
 }
 
 .stLinkButton > a:hover {
     border-color: var(--accent) !important;
+    background: var(--accent) !important;
+    color: #ffffff !important;
+}
+
+.stLinkButton > a:hover * {
+    color: #ffffff !important;
+}
+
+/* ---- Section Navigator Pills (st.pills) ---- */
+div[data-testid="stSegmentedControl"],
+div[data-testid="stButtonGroup"],
+div[role="radiogroup"] {
+    background: transparent !important;
+    gap: 6px !important;
+}
+
+div[data-testid="stSegmentedControl"] button,
+div[data-testid="stButtonGroup"] button,
+button[data-testid="stPillsOption"],
+div[role="radiogroup"] button {
+    background: var(--card) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: var(--radius) !important;
+    font-family: var(--head) !important;
+    font-weight: 700 !important;
+    font-size: 0.82rem !important;
+    letter-spacing: 0.05em !important;
+    padding: 6px 14px !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 1px 1px 0 var(--rule) !important;
+}
+
+div[data-testid="stSegmentedControl"] button *,
+div[data-testid="stButtonGroup"] button *,
+button[data-testid="stPillsOption"] *,
+div[role="radiogroup"] button * {
+    color: var(--ink) !important;
+    font-weight: 700 !important;
+}
+
+div[data-testid="stSegmentedControl"] button:hover,
+div[data-testid="stButtonGroup"] button:hover,
+button[data-testid="stPillsOption"]:hover {
+    border-color: var(--accent) !important;
     color: var(--accent) !important;
 }
 
-/* Custom inputs, selectboxes, pills */
-div[data-testid="stSelectbox"] > div > div {
-    background: var(--card) !important;
-    color: var(--ink) !important;
-    border-color: var(--rule) !important;
+div[data-testid="stSegmentedControl"] button:hover *,
+div[data-testid="stButtonGroup"] button:hover *,
+button[data-testid="stPillsOption"]:hover * {
+    color: var(--accent) !important;
 }
 
-/* ---- Animations ---- */
-@keyframes cardOut {
-    0%   { opacity: 1; max-height: 700px; transform: none; }
-    45%  { opacity: 0; transform: translateX(-35px); }
-    100% { opacity: 0; max-height: 0; margin: 0; padding: 0; border: 0; transform: translateX(-35px); }
+/* Selected active pill */
+div[data-testid="stSegmentedControl"] button[aria-checked="true"],
+div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
+div[data-testid="stSegmentedControl"] button[data-checked="true"],
+div[data-testid="stButtonGroup"] button[aria-checked="true"],
+div[data-testid="stButtonGroup"] button[aria-pressed="true"],
+button[data-testid="stPillsOption"][aria-selected="true"],
+button[data-testid="stPillsOption"][data-checked="true"] {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: #ffffff !important;
 }
+
+div[data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+div[data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
+div[data-testid="stSegmentedControl"] button[data-checked="true"] *,
+div[data-testid="stButtonGroup"] button[aria-checked="true"] *,
+div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
+button[data-testid="stPillsOption"][aria-selected="true"] *,
+button[data-testid="stPillsOption"][data-checked="true"] * {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+
+/* ---- Streamlit Expander ("Read Wireless Script") ---- */
+div[data-testid="stExpander"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: var(--radius) !important;
+    margin-top: 10px !important;
+    box-shadow: 2px 2px 0 var(--rule) !important;
+}
+
+div[data-testid="stExpander"] details {
+    background: transparent !important;
+}
+
+div[data-testid="stExpander"] details summary {
+    background: var(--card) !important;
+    color: var(--ink) !important;
+    font-family: var(--head) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    font-size: 0.82rem !important;
+    padding: 10px 14px !important;
+    border-radius: var(--radius) !important;
+}
+
+div[data-testid="stExpander"] details summary * {
+    color: var(--ink) !important;
+    font-weight: 800 !important;
+}
+
+div[data-testid="stExpander"] details summary svg {
+    fill: var(--accent) !important;
+    stroke: var(--accent) !important;
+}
+
+div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
+    background: var(--panel) !important;
+    color: var(--ink) !important;
+    padding: 14px 16px !important;
+}
+
+div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] * {
+    color: var(--ink) !important;
+}
+
+/* ---- Form inputs & text fields ---- */
+div[data-testid="stTextInput"] input,
+div[data-baseweb="input"] input {
+    background: var(--card) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: var(--radius) !important;
+    font-family: var(--body) !important;
+    font-size: 0.92rem !important;
+}
+
+div[data-testid="stTextInput"] input:focus,
+div[data-baseweb="input"] input:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 1px var(--accent) !important;
+}
+
+/* ---- Toast Notification Styling ---- */
+div[data-testid="stToast"] {
+    background: var(--panel) !important;
+    color: var(--ink) !important;
+    border: 2px solid var(--accent) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 4px 4px 0 var(--rule) !important;
+    font-family: var(--body) !important;
+    font-size: 0.9rem !important;
+}
+
+div[data-testid="stToast"] * {
+    color: var(--ink) !important;
+}
+
+/* ---- Smooth Card Dismissal Animation ---- */
+@keyframes cardSmoothOut {
+    0%   { opacity: 1; transform: translateY(0) scale(1); max-height: 800px; margin-bottom: 12px; }
+    40%  { opacity: 0.3; transform: translateX(-25px) scale(0.98); }
+    100% { opacity: 0; transform: translateX(-60px) scale(0.92); max-height: 0; margin-bottom: 0; padding: 0; border: 0; overflow: hidden; }
+}
+
 .card-out {
-    animation: cardOut 0.85s ease forwards;
+    animation: cardSmoothOut 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
     overflow: hidden;
+    pointer-events: none;
 }
 
 @keyframes pillLife {
@@ -661,6 +1165,18 @@ div[data-testid="stSelectbox"] > div > div {
     color: #ffffff;
     border-color: var(--accent);
 }
+
+@keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+.sk { background:linear-gradient(90deg,rgba(128,128,128,.15) 25%,rgba(128,128,128,.32) 50%,rgba(128,128,128,.15) 75%);
+      background-size:200% 100%; animation:shimmer 1.4s linear infinite; border-radius:2px; }
+.sk-line { height:12px; margin:9px 0; }
+.sk-title { height:22px; width:90%; margin:16px 0 8px; }
+.sk-lead { height:44px; width:80%; margin:14px auto 10px; }
+.sk-cols { display:grid; grid-template-columns:1fr 2fr 1.2fr; gap:28px; margin-top:18px; }
+.sk-status { position:relative; height:1.6em; text-align:center; margin:10px 0 4px;
+             font-family:var(--head); font-style:italic; font-size:1.05rem; }
+@keyframes msg { 0%{opacity:0} 6%{opacity:1} 30%{opacity:1} 36%{opacity:0} 100%{opacity:0} }
+.sk-msg { position:absolute; left:0; right:0; opacity:0; animation:msg 9s infinite; }
 """
 
 def apply(theme_name):

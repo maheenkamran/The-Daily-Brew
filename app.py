@@ -3,7 +3,9 @@ from core.db import init_db, get_user, user_by_token
 from ui import auth, onboarding, sidebar, reader, themes, insights
 
 st.set_page_config(page_title="The Daily Brew", page_icon="📰", layout="wide")
-init_db()@st.cache_resource
+init_db()
+
+@st.cache_resource
 def bootstrap():
     import sys
     from core import db
